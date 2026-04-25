@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+{% block title %}Enter Marks — {{ grade.name }} {{ stream.name }}{% endblock %}
+{% block topbar_title %}{{ grade.name }} {{ stream.name }} — {{ assessment.name }}{% endblock %}
+{% block extra_css %}
+<style>
+.mark-table th{font-size:.72rem;padding:8px 10px}
+.mark-table td{padding:6px 8px}
+.score-input{width:65px;text-align:center;padding:5px 6px;font-size:.82rem}
+.split-pair{display:flex;gap:5px;align-items:center}
+.split-pair .score-input{width:54px}
+.split-pair .sep{color:#ccc;font-size:.7rem}
+.student-name{font-weight:600;font-size:.83rem;min-width:160px}
+.sticky-header{position:sticky;top:52px;z-index:10;background:#002147}
+</style>{% endblock %}
+{% block content %}
+<div class="ph">
+  <div>
+    <h1>{{ grade.name }} {{ stream.name }}</h1>
+    <p>{{ assessment.name }} · {{ students|length }} learners · {% if split_subjects %}Split subjects: {{ split_subjects.keys()|join(', ') }}{% endif %}</p>
+  </div>
+  <div class="ph-act">
+    <a href="{{ url_for('marks.index') }}" class="btn btn-o btn-sm">← Back</a>
+  </div>
+</div>
+
+<form method="POST" action="{{ url_for('marks.save_marks') }}">
+  <input type="hidden" name="assessment_id" value="{{ assessment.id }}">
+  <input type="hidden" name="stream_id" value="{{ stream.id }}">
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="tw">
+      <table class="mark-table">
+        <thead class="sticky-header">
+          <tr>
+            <th style="min-width:50px">#</th>
+            <th style="min-width:165px">Learner Name</th>
+            {% for subject in subjects %}
+            <th class="c">
+              {{ subject }}
+              {% if subject in split_subjects %}
+              <br><span style="font-weight:400;font-size:.65rem;color:#aaa">({{ split_subjects[subject][0] }}+{{ split_subjects[subject][2] }})</span>
+              {% endif %}
+            </th>
+            {% endfor %}
+          </tr>
+        </thead>
+        <tbody>
+        {% for student in students %}
+        {% set sm = marks_lookup.get(student.id, {}) %}
+        <tr>
+          <td style="color:#9a9a90;font-size:.78rem">{{ loop.index }}</td>
+          <td class="student-name">{{ student.full_name }}</td>
+          {% for subject in subjects %}
+          {% set fk = student.id|string + '_' + subject|replace(' ','_')|replace('&','and') %}
+          {% set existing = sm.get(subject) %}
+          <td class="c">
+            {% if subject in split_subjects %}
+            <div class="split-pair">
+              <input type="number" class="score-input" name="{{ fk }}_p1"
+                     min="0" max="{{ split_subjects[subject][1] }}" step="0.5"
+                     value="{{ existing.paper1_score if existing and existing.paper1_score is not none else '' }}"
+                     placeholder="{{ split_subjects[subject][0] }}">
+              <span class="sep">+</span>
+              <input type="number" class="score-input" name="{{ fk }}_p2"
+                     min="0" max="{{ split_subjects[subject][3] }}" step="0.5"
+                     value="{{ existing.paper2_score if existing and existing.paper2_score is not none else '' }}"
+                     placeholder="{{ split_subjects[subject][2] }}">
+            </div>
+            {% if existing and existing.combined_score is not none %}
+            <div style="font-size:.7rem;color:#666;margin-top:2px">= {{ existing.combined_score|round(1) }}%
+              <span class="badge b-{{ existing.grade_code|lower|replace('1','')|replace('2','') }}">{{ existing.grade_code }}</span>
+            </div>
+            {% endif %}
+            {% else %}
+            <input type="number" class="score-input" name="{{ fk }}"
+                   min="0" max="30" step="0.5"
+                   value="{{ existing.score if existing and existing.score is not none else '' }}">
+            {% if existing and existing.grade_code %}
+            <div style="font-size:.7rem;color:#666;margin-top:2px"><span class="badge b-{{ existing.grade_code|lower|replace('1','')|replace('2','') }}">{{ existing.grade_code }}</span></div>
+            {% endif %}
+            {% endif %}
+          </td>
+          {% endfor %}
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-top:4px">
+    <button type="submit" class="btn btn-g">💾 Save All Marks</button>
+    <a href="{{ url_for('marks.index') }}" class="btn btn-o">Cancel</a>
+  </div>
+</form>
+{% endblock %}
